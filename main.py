@@ -18,10 +18,10 @@
 ::: TO DO :::
 1- Put zeros by left click, poles by right click.
 6- Remove them by mouse
+4- CTRL + Z to remove the most recent zero/pole
 
 2- Move them by mouse, but also keep the analog moving.
 3- convert analog movement to keyboard arrows.
-4- CTRL + Z to remove the most recent zero/pole
 5- more decent zero/pole file.
 6- go to a better representation than
 '''
@@ -42,6 +42,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.uic import loadUiType
 from PyQt4 import QtGui, QtCore
+from PyQt4.QtCore import QThread, SIGNAL
 
 import matplotlib.pyplot as plt
 
@@ -63,13 +64,43 @@ import _thread
 ######################################################################################
 
 
+# :::TESTING TO UPDATE THE PLOT FROM A QT THREAD ::: #
+
+# a thread to update the plot without blocking the GUI (make it crash)
+class plotting_thread(QtCore.QThread):
+	def __init__(self):
+		super(plotting_thread, self).__init__()
+
+
+	def run(self):
+		# self.emit(SIGNAL('observer()'))
+
+		while(1):
+			try:
+				# call a fuction from the main thread
+				self.emit(SIGNAL('drawCircle()'))
+				self.emit(SIGNAL('btn_draw_tf_fn()'))
+
+				QThread.msleep(1000)
+
+			except(TypeError):
+				pass
+
+
 ## Speaking of which
 class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 	def __init__(self):
 		super(mainApp, self).__init__()
 		self.setupUi(self)
 		
-		
+		# configuring the plotting thread
+		self.plotting_thread = plotting_thread()
+		self.connect(self.plotting_thread, SIGNAL('drawCircle()'), self.drawCircle)
+		self.connect(self.plotting_thread, SIGNAL('btn_draw_tf_fn()'), self.btn_draw_tf_fn)
+
+		self.plotting_thread.start()
+
+
 		## defining the buttons and connecting them to their functions (handlers)
 		self.btn_browse.clicked.connect(self.btn_browse_txt)
 		self.btn_clear.clicked.connect(self.btn_clear_fn)
@@ -120,7 +151,7 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 		# start the thread to listen for keyboard presses
 		_thread.start_new_thread(self.listener_fn, ())
 
-		_thread.start_new_thread(self.observer, ())
+		# _thread.start_new_thread(self.observer, ())
 
 		self.ls = []
 		self.undo_stack = []
@@ -128,6 +159,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 
 
 	def observer(self):
+		print('OBSERVER: STARTED')
+
 		len_z = len(self.zeros_real)
 		len_p = len(self.poles_real)
 
@@ -179,8 +212,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 					del self.poles_real[i]
 					del self.poles_img[i]
 
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 
 		## left click to add zeros, adding them to the arrays
@@ -190,8 +223,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 
 			self.undo_stack.append('z')
 
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 
 		## right click to add poles, adding them to the arrays
@@ -201,8 +234,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 			
 			self.undo_stack.append('p')
 
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 
 		## if the user has entered 'm' we will start the moving procedures
@@ -252,8 +285,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 			self.redo()
 
 
+	# undo the most recent zero/pole action
 	def undo(self):
-		print('undoing')
 		temp = self.undo_stack.pop()
 		self.redo_stack.append(temp)
 
@@ -266,6 +299,7 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 			self.poles_img.pop()
 
 
+	# redo the undoed action(s)
 	def redo(self):
 		# logic is not consistent yet
 		print('redoing')
@@ -363,8 +397,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 				self.undo_stack.append('p')
 
 
-		self.drawCircle()
-		self.btn_draw_tf_fn()
+		# self.drawCircle()
+		# self.btn_draw_tf_fn()
 
 
 	## clearing every single character in the code, returning everything to its initial condition
@@ -385,8 +419,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.clearLayout(self.tfPlot)
 		self.clearLayout(self.circlePlot)
 		
-		self.drawCircle()
-		self.btn_draw_tf_fn()
+		# self.drawCircle()
+		# self.btn_draw_tf_fn()
 
 
 	## used to draw any figure, reducing program memory computation
@@ -449,8 +483,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.lnd_zero_real.clear()
 		self.lnd_zero_img.clear()
 		
-		self.drawCircle()
-		self.btn_draw_tf_fn()
+		# self.drawCircle()
+		# self.btn_draw_tf_fn()
 
 
 	## used to add poles by hand
@@ -463,8 +497,8 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.lnd_pole_real.clear()
 		self.lnd_pole_img.clear()
 		
-		self.drawCircle()
-		self.btn_draw_tf_fn()
+		# self.drawCircle()
+		# self.btn_draw_tf_fn()
 
 
 	## moving a specific point up in the imaginary axis
@@ -472,53 +506,53 @@ class mainApp(QtGui.QMainWindow, design.Ui_MainWindow):
 		if self.anhy == 'z':
 			self.zeros_img[self.drag] = self.zeros_img[self.drag] + float(self.lnd_accuracy.text())
 			
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 		elif self.anhy == 'p':
 			self.poles_img[self.drag] = self.poles_img[self.drag] + float(self.lnd_accuracy.text())
 			
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 
 	## moving a specific point down in the imaginary axis
 	def btn_down_fn(self):
 		if self.anhy == 'z':
 			self.zeros_img[self.drag] = self.zeros_img[self.drag] - float(self.lnd_accuracy.text())
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 		elif self.anhy == 'p':
 			self.poles_img[self.drag] = self.poles_img[self.drag] - float(self.lnd_accuracy.text())
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 
 	## moving a specific point uright in the real axis
 	def btn_right_fn(self):
 		if self.anhy == 'z':
 			self.zeros_real[self.drag] = self.zeros_real[self.drag] + float(self.lnd_accuracy.text())
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 		elif self.anhy == 'p':
 			self.poles_real[self.drag] = self.poles_real[self.drag] + float(self.lnd_accuracy.text())
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 
 	## moving a specific point left in the real axis
 	def btn_left_fn(self):
 		if self.anhy == 'z':
 			self.zeros_real[self.drag] = self.zeros_real[self.drag] - float(self.lnd_accuracy.text())
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 		elif self.anhy == 'p':
 			self.poles_real[self.drag] = self.poles_real[self.drag] - float(self.lnd_accuracy.text())
-			self.drawCircle()
-			self.btn_draw_tf_fn()
+			# self.drawCircle()
+			# self.btn_draw_tf_fn()
 
 
 	## release the point that we are holding and dragging
